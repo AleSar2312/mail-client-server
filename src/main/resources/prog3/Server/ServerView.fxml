@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+            fx:controller="prog3.Server.ServerController"
+            prefHeight="600.0" prefWidth="800.0">
+
+    <top>
+        <VBox>
+            <HBox style="-fx-background-color: #2196F3; -fx-padding: 15;">
+                <Label text="Mail Server" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: white;"/>
+                <Pane HBox.hgrow="ALWAYS"/>
+                <Label fx:id="lblStatus" text="Server in esecuzione" style="-fx-text-fill: white; -fx-font-size: 14px;"/>
+            </HBox>
+            <Separator/>
+        </VBox>
+    </top>
+
+    <center>
+        <VBox spacing="10" style="-fx-background-color: white;">
+            <padding>
+                <Insets top="15" right="15" bottom="15" left="15"/>
+            </padding>
+
+            <Label text="Log Eventi Server" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+            <Separator/>
+
+            <TextArea fx:id="logArea" editable="false" VBox.vgrow="ALWAYS"
+                      style="-fx-font-family: 'Courier New'; -fx-font-size: 12px;"/>
+        </VBox>
+    </center>
+
+    <bottom>
+        <HBox style="-fx-background-color: #e0e0e0; -fx-padding: 10;" spacing="10">
+            <Label text="Numero connessioni:"/>
+            <Label fx:id="lblConnections" text="0"/>
+        </HBox>
+    </bottom>
+</BorderPane>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="prog3.Client.NewMessage.NewMessageController"
+      spacing="15" prefWidth="600" prefHeight="500">
+
+    <padding>
+        <Insets top="20" right="20" bottom="20" left="20"/>
+    </padding>
+
+    <Label text="Nuovo Messaggio" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+    <Separator/>
+
+    <GridPane hgap="10" vgap="15">
+        <Label text="A:" GridPane.columnIndex="0" GridPane.rowIndex="0" style="-fx-font-weight: bold;"/>
+        <TextField fx:id="txtTo" GridPane.columnIndex="1" GridPane.rowIndex="0" promptText="destinatario@mail.com"/>
+
+        <Label text="Oggetto:" GridPane.columnIndex="0" GridPane.rowIndex="1" style="-fx-font-weight: bold;"/>
+        <TextField fx:id="txtSubject" GridPane.columnIndex="1" GridPane.rowIndex="1" promptText="Oggetto del messaggio"/>
+    </GridPane>
+
+    <Label text="Messaggio:" style="-fx-font-weight: bold;"/>
+    <TextArea fx:id="txtBody" wrapText="true" VBox.vgrow="ALWAYS" promptText="Scrivi il tuo messaggio..."/>
+
+    <Label fx:id="lblError" textFill="red" visible="false"/>
+
+    <HBox spacing="10" alignment="CENTER_RIGHT">
+        <Button fx:id="btnSend" text="Invia" onAction="#onSend" style="-fx-background-color: #4CAF50; -fx-text-fill: white;" prefWidth="100"/>
+        <Button fx:id="btnCancel" text="Annulla" onAction="#onCancel" prefWidth="100"/>
+    </HBox>
+
+</VBox>
