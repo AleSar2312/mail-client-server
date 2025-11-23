@@ -64,6 +64,8 @@
                <Button fx:id="btnForward" text="Inoltra" onAction="#onForward" prefWidth="110"/>
                <Button fx:id="btnDelete" text="Elimina" onAction="#onDelete" prefWidth="110"
                        style="-fx-background-color: #f44336; -fx-text-fill: white;"/>
+               <Button text="Aggiorna" onAction="#onRefresh" />
+
             </HBox>
          </VBox>
       </SplitPane>

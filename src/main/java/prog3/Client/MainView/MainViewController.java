@@ -71,6 +71,9 @@ public class MainViewController {
             );
             Parent root = loader.load();
 
+            NewMessageController controller = loader.getController();
+            controller.setUserEmail(model.getAccount());
+
             Stage stage = new Stage();
             stage.setTitle("Nuovo Messaggio");
             stage.setScene(new Scene(root));
@@ -98,6 +101,7 @@ public class MainViewController {
             Parent root = loader.load();
 
             NewMessageController controller = loader.getController();
+            controller.setUserEmail(model.getAccount());
             controller.setReplyTo(selected.getSender(), "Re: " + selected.getSubject());
 
             Stage stage = new Stage();
@@ -127,8 +131,16 @@ public class MainViewController {
             Parent root = loader.load();
 
             NewMessageController controller = loader.getController();
+            controller.setUserEmail(model.getAccount());
 
-            String allRecipients = selected.getSender() + "," + String.join(",", selected.getReceivers());
+            // Rispondi a mittente + tutti i destinatari (escluso se stesso)
+            String allRecipients = selected.getSender();
+            for (String receiver : selected.getReceivers()) {
+                if (!receiver.equals(model.getAccount())) {
+                    allRecipients += "," + receiver;
+                }
+            }
+
             controller.setReplyTo(allRecipients, "Re: " + selected.getSubject());
 
             Stage stage = new Stage();
@@ -158,6 +170,7 @@ public class MainViewController {
             Parent root = loader.load();
 
             NewMessageController controller = loader.getController();
+            controller.setUserEmail(model.getAccount());
             controller.setForward("Fwd: " + selected.getSubject(), selected.getText());
 
             Stage stage = new Stage();
@@ -181,5 +194,11 @@ public class MainViewController {
         } else {
             statusLbl.setText("Nessuna email selezionata");
         }
+    }
+
+    @FXML
+    private void onRefresh() {
+        model.loadEmails();
+        statusLbl.setText("Posta aggiornata - " + model.getMailList().size() + " email");
     }
 }

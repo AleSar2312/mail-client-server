@@ -8,6 +8,10 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.net.Socket;
+import java.io.PrintWriter;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 public class ClientModel {
 
@@ -86,6 +90,22 @@ public class ClientModel {
     public void deleteEmail(Email email) {
         mailList.remove(email);
         saveEmails();
+
+        // Notifica il server
+        try {
+            Socket socket = new Socket("localhost", 8080);
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+            String message = "DELETE_EMAIL:" + this.account + ":" + email.getId();
+            out.println(message);
+
+            in.readLine(); // Ricevi risposta
+            socket.close();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void saveEmails() {
