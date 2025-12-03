@@ -5,12 +5,14 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
+import java.io.IOException;
+
 public class ServerApplication extends Application {
 
     @Override
-    public void start(Stage stage) throws Exception {
+    public void start(Stage stage) throws IOException {
         FXMLLoader fxmlLoader = new FXMLLoader(
-                getClass().getResource("/prog3/Server/ServerView.fxml")
+                ServerApplication.class.getResource("/prog3/Server/ServerView.fxml")
         );
         Scene scene = new Scene(fxmlLoader.load(), 800, 600);
         stage.setTitle("Mail Server");

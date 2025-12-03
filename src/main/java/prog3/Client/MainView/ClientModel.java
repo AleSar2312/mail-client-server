@@ -1,129 +1,273 @@
 package prog3.Client.MainView;
 
+import javafx.application.Platform;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import prog3.Client.Common.Email;
+import prog3.Common.Email;
+import prog3.Common.MailString;
+import prog3.Common.Operations;
 
-import java.io.*;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
-import java.io.PrintWriter;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ClientModel {
+    private final SimpleStringProperty account = new SimpleStringProperty();
+    private final SimpleStringProperty warning = new SimpleStringProperty();
+    private final SimpleBooleanProperty notify = new SimpleBooleanProperty();
+    private ObservableList<Email> mailList = FXCollections.observableArrayList();
+    private final ObjectProperty<Email> currentMail = new SimpleObjectProperty<>();
+    private boolean newMail = false;
+    private boolean init_mailBox = false;
+    private boolean init_server_disconnected = false;
+    ExecutorService executorService = Executors.newFixedThreadPool(5);
 
-    private String account;
-    private final ObservableList<Email> mailList;
-    private File mailboxFile;
-    private String email;
+    public ClientModel(String account) {
+        this.account.set(account);
+        newMail = false;
 
-    public ClientModel(String email) {
-        this.account = email;
-        this.email = email;
-        this.mailList = FXCollections.observableArrayList();
-        this.mailboxFile = new File("src/main/java/prog3/Server/mailboxes/" + email + "/inbox.txt");
-
-        File mailboxDir = new File("src/main/java/prog3/Server/mailboxes/" + email);
-        if (!mailboxDir.exists()) {
-            mailboxDir.mkdirs();
-        }
-
-        loadEmails();
+        Thread clientThread = new Thread(() -> {
+            while (true) {
+                try {
+                    Platform.runLater(() -> {
+                        if (!init_mailBox) {
+                            getInitMailBox();
+                        } else {
+                            if (init_server_disconnected) {
+                                getInitMailBox();
+                            } else {
+                                askForNewMails();
+                            }
+                        }
+                    });
+                    Thread.sleep(20000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+        clientThread.start();
     }
 
-    public void setUserEmail(String email) {
-        this.email = email;
-        this.account = email;
-        this.mailboxFile = new File("src/main/java/prog3/Server/mailboxes/" + email + "/inbox.txt");
-        loadEmails();
+    public Email getCurrentMail() {
+        return currentMail.get();
+    }
+
+    public ObjectProperty<Email> currentMailProperty() {
+        return currentMail;
     }
 
     public String getAccount() {
+        return account.get();
+    }
+
+    public SimpleStringProperty accountProperty() {
         return account;
     }
 
-    public void loadEmails() {
-        mailList.clear();
-        if (!mailboxFile.exists()) {
-            return;
-        }
-
-        try (BufferedReader reader = new BufferedReader(new FileReader(mailboxFile))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                Email email = parseEmail(line);
-                if (email != null) {
-                    mailList.add(email);
-                }
-            }
-            System.out.println("Caricate " + mailList.size() + " email per " + account);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    public String getWarning() {
+        return warning.get();
     }
 
-    private Email parseEmail(String line) {
-        String[] parts = line.split(";");
-        if (parts.length >= 6) {
-            int id = Integer.parseInt(parts[0]);
-            String sender = parts[1];
-            String receiver = parts[2];
-            String subject = parts[3];
-            String text = parts[4];
-            String dateStr = parts[5];
+    public SimpleStringProperty warningProperty() {
+        return warning;
+    }
 
-            List<String> receivers = new ArrayList<>();
-            receivers.add(receiver);
+    public boolean isNotify() {
+        return notify.get();
+    }
 
-            return new Email(id, sender, receivers, subject, text, new Date());
-        }
-        return null;
+    public SimpleBooleanProperty notifyProperty() {
+        return notify;
     }
 
     public ObservableList<Email> getMailList() {
         return mailList;
     }
 
-    public void deleteEmail(Email email) {
-        mailList.remove(email);
-        saveEmails();
+    private Socket connecting() {
+        try {
+            Socket s = new Socket("localhost", 8080);
+            warning.setValue("");
+            return s;
+        } catch (IOException e) {
+            warning.set("Server non attivo");
+        }
+        return null;
+    }
+
+    private void getInitMailBox() {
+        Socket socket = connecting();
+        if (socket != null) {
+            executorService.execute(new OperationsHandler(socket, "getInitMailBox", -1));
+        }
+    }
+
+    protected void askForNewMails() {
+        if (!init_mailBox || init_server_disconnected) {
+            getInitMailBox();
+        } else {
+            Socket socket = connecting();
+            if (socket != null) {
+                executorService.execute(new OperationsHandler(socket, "askForNewMails", -1));
+            } else {
+                if (init_mailBox)
+                    init_server_disconnected = true;
+            }
+        }
+    }
+
+    private void getNewMails() {
+        if (newMail) {
+            Socket socket = connecting();
+            if (socket != null) {
+                executorService.execute(new OperationsHandler(socket, "getNewMails", -1));
+            }
+        }
+    }
+
+    protected synchronized void deleteMail() {
+        Email current = getCurrentMail();
+        if (current == null) {
+            System.out.println("DEBUG: Nessuna email selezionata");
+            warning.set("Nessuna email selezionata");
+            return;
+        }
+
+        int emailId = current.getId();
+        System.out.println("=== DEBUG CLIENT ELIMINAZIONE ===");
+        System.out.println("Email da eliminare: ID=" + emailId);
+        System.out.println("Oggetto: " + current.getOggetto());
+        System.out.println("Size lista PRIMA: " + mailList.size());
+
+        // Rimuovi dalla lista UI
+        boolean removed = mailList.remove(current);
+        System.out.println("Rimossa dalla lista UI? " + removed);
+        System.out.println("Size lista DOPO: " + mailList.size());
 
         // Notifica il server
-        try {
-            Socket socket = new Socket("localhost", 8080);
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-            String message = "DELETE_EMAIL:" + this.account + ":" + email.getId();
-            out.println(message);
-
-            in.readLine(); // Ricevi risposta
-            socket.close();
-
-        } catch (IOException e) {
-            e.printStackTrace();
+        Socket socket = connecting();
+        if (socket != null) {
+            System.out.println("Socket connesso, invio richiesta delete al server...");
+            executorService.execute(new OperationsHandler(socket, "deleteMail", emailId));
+        } else {
+            System.out.println("ERRORE: Socket è null!");
         }
+
+        System.out.println("=================================\n");
     }
 
-    private void saveEmails() {
-        try (PrintWriter writer = new PrintWriter(new FileWriter(mailboxFile))) {
-            for (Email email : mailList) {
-                writer.println(emailToString(email));
+    private synchronized void updateList(List<MailString> mailBox) {
+        if (init_server_disconnected) {
+            mailList.clear();
+        }
+
+        for (MailString mail : mailBox) {
+            Email email = new Email(
+                    mail.getId(),
+                    mail.getMittente(),
+                    mail.getDestinatari(),
+                    mail.getOggetto(),
+                    mail.getCorpo(),
+                    mail.getData()
+            );
+            mailList.add(0, email);
+        }
+        notify.setValue(false);
+        init_server_disconnected = false;
+    }
+
+    public class OperationsHandler implements Runnable {
+        private int id;
+        private final String op_type;
+        private final Socket socket;
+
+        public OperationsHandler(Socket socket, String op_type, int id) {
+            this.op_type = op_type;
+            this.socket = socket;
+            this.id = id;
+        }
+
+        @Override
+        public void run() {
+            try {
+                try {
+                    ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
+                    outputStream.writeObject(getAccount());
+                    ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
+
+                    switch (op_type) {
+                        case "getInitMailBox":
+                            outputStream.writeObject(Operations.initMailbox);
+                            outputStream.flush();
+
+                            Object response = inputStream.readObject();
+                            if (response instanceof String && ((String) response).startsWith("ERROR")) {
+                                Platform.runLater(() -> warning.set("Utente non trovato"));
+                            } else {
+                                List<MailString> mailList = (List<MailString>) response;
+                                if (mailList != null) {
+                                    Platform.runLater(() -> updateList(mailList));
+                                    init_mailBox = true;
+                                }
+                            }
+                            break;
+
+                        case "askForNewMails":
+                            outputStream.writeObject(Operations.checkNew);
+                            outputStream.flush();
+
+                            newMail = (boolean) inputStream.readObject();
+                            Platform.runLater(() -> notify.set(newMail));
+                            getNewMails();
+                            break;
+
+                        case "getNewMails":
+                            outputStream.writeObject(Operations.getNew);
+                            outputStream.flush();
+
+                            List<MailString> newsList = (List<MailString>) inputStream.readObject();
+                            Platform.runLater(() -> updateList(newsList));
+                            newMail = false;
+                            break;
+
+                        case "deleteMail":
+                            System.out.println("=== DEBUG OperationsHandler DELETE ===");
+                            System.out.println("1. Invio Operations.delete: '" + Operations.delete + "'");
+
+                            outputStream.writeObject(Operations.delete);
+                            outputStream.flush();
+
+                            System.out.println("2. Invio ID: " + id);
+                            outputStream.writeObject(id);
+                            outputStream.flush();
+
+                            System.out.println("3. Attendo che il server completi...");
+                            Thread.sleep(1000); // Aspetta 1 secondo
+
+                            System.out.println("4. DELETE completato");
+                            System.out.println("======================================\n");
+                            break;
+                    }
+
+                } catch (IOException | ClassNotFoundException | InterruptedException e) {
+                    Platform.runLater(() -> warning.setValue(e.getMessage()));
+                    e.printStackTrace();
+                } finally {
+                    socket.close();
+                }
+            } catch (IOException e) {
+                Platform.runLater(() -> warning.setValue(e.getMessage()));
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
-    }
-
-    private String emailToString(Email email) {
-        return email.getId() + ";" +
-                email.getSender() + ";" +
-                String.join(",", email.getReceivers()) + ";" +
-                email.getSubject() + ";" +
-                email.getText() + ";" +
-                email.getDate();
     }
 }

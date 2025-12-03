@@ -2,13 +2,10 @@ package prog3.Client.MainView;
 
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
-import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Label;
-import javafx.scene.control.ListView;
-import javafx.scene.control.TextArea;
+import javafx.scene.control.*;
 import javafx.stage.Stage;
-import prog3.Client.Common.Email;
+import prog3.Common.Email;
 import prog3.Client.NewMessage.NewMessageController;
 
 import java.io.IOException;
@@ -23,25 +20,34 @@ public class MainViewController {
     @FXML private Label lblDate;
     @FXML private TextArea txtBody;
     @FXML private Label statusLbl;
+    @FXML private Button btnDelete;
 
     private ClientModel model;
 
-    @FXML
-    private void initialize() {
-        // Inizializzazione base
-    }
+    public void initModel(ClientModel model, Stage stage) {
+        if (this.model != null) {
+            throw new IllegalStateException("Il modello può essere inizializzato solo una volta");
+        }
+        this.model = model;
 
-    public void setUserEmail(String email) {
-        this.model = new ClientModel(email);
-        accountLbl.setText(email);
+        accountLbl.textProperty().bind(model.accountProperty());
         inboxList.setItems(model.getMailList());
+        statusLbl.textProperty().bind(model.warningProperty());
 
-        inboxList.getSelectionModel().selectedItemProperty().addListener(
-                (observable, oldVal, newVal) -> showEmailDetails(newVal)
-        );
+        model.notifyProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue) {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Hai ricevuto una nuova mail!");
+                alert.initOwner(stage);
+                alert.setTitle("Notifica");
+                alert.setHeaderText(accountLbl.getText());
+                alert.show();
+            }
+        });
 
-        model.loadEmails();
-        statusLbl.setText("Caricate " + model.getMailList().size() + " email");
+        inboxList.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
+            showEmailDetails(newV);
+            model.currentMailProperty().set(newV);  // ✅ AGGIUNGI QUESTA RIGA!
+        });
     }
 
     private void showEmailDetails(Email email) {
@@ -49,156 +55,94 @@ public class MainViewController {
             lblFrom.setText("-");
             lblTo.setText("-");
             lblSubject.setText("-");
-            lblDate.setText("-");
             txtBody.setText("");
-            return;
-        }
-
-        lblFrom.setText(email.getSender());
-        lblTo.setText(String.join(", ", email.getReceivers()));
-        lblSubject.setText(email.getSubject());
-        lblDate.setText(email.getDate().toString());
-        txtBody.setText(email.getText());
-
-        statusLbl.setText("Visualizzazione email: " + email.getSubject());
-    }
-
-    @FXML
-    private void onNew() {
-        try {
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/prog3/Client/NewMessage/NewMessage.fxml")
-            );
-            Parent root = loader.load();
-
-            NewMessageController controller = loader.getController();
-            controller.setUserEmail(model.getAccount());
-
-            Stage stage = new Stage();
-            stage.setTitle("Nuovo Messaggio");
-            stage.setScene(new Scene(root));
-            stage.show();
-
-            statusLbl.setText("Finestra nuovo messaggio aperta");
-        } catch (IOException e) {
-            statusLbl.setText("Errore apertura finestra messaggio");
-            e.printStackTrace();
-        }
-    }
-
-    @FXML
-    private void onReply() {
-        Email selected = inboxList.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            statusLbl.setText("Nessuna email selezionata");
-            return;
-        }
-
-        try {
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/prog3/Client/NewMessage/NewMessage.fxml")
-            );
-            Parent root = loader.load();
-
-            NewMessageController controller = loader.getController();
-            controller.setUserEmail(model.getAccount());
-            controller.setReplyTo(selected.getSender(), "Re: " + selected.getSubject());
-
-            Stage stage = new Stage();
-            stage.setTitle("Rispondi");
-            stage.setScene(new Scene(root));
-            stage.show();
-
-            statusLbl.setText("Risposta a: " + selected.getSender());
-        } catch (IOException e) {
-            statusLbl.setText("Errore apertura finestra risposta");
-            e.printStackTrace();
-        }
-    }
-
-    @FXML
-    private void onReplyAll() {
-        Email selected = inboxList.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            statusLbl.setText("Nessuna email selezionata");
-            return;
-        }
-
-        try {
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/prog3/Client/NewMessage/NewMessage.fxml")
-            );
-            Parent root = loader.load();
-
-            NewMessageController controller = loader.getController();
-            controller.setUserEmail(model.getAccount());
-
-            // Rispondi a mittente + tutti i destinatari (escluso se stesso)
-            String allRecipients = selected.getSender();
-            for (String receiver : selected.getReceivers()) {
-                if (!receiver.equals(model.getAccount())) {
-                    allRecipients += "," + receiver;
-                }
-            }
-
-            controller.setReplyTo(allRecipients, "Re: " + selected.getSubject());
-
-            Stage stage = new Stage();
-            stage.setTitle("Rispondi a tutti");
-            stage.setScene(new Scene(root));
-            stage.show();
-
-            statusLbl.setText("Risposta a tutti");
-        } catch (IOException e) {
-            statusLbl.setText("Errore apertura finestra");
-            e.printStackTrace();
-        }
-    }
-
-    @FXML
-    private void onForward() {
-        Email selected = inboxList.getSelectionModel().getSelectedItem();
-        if (selected == null) {
-            statusLbl.setText("Nessuna email selezionata");
-            return;
-        }
-
-        try {
-            FXMLLoader loader = new FXMLLoader(
-                    getClass().getResource("/prog3/Client/NewMessage/NewMessage.fxml")
-            );
-            Parent root = loader.load();
-
-            NewMessageController controller = loader.getController();
-            controller.setUserEmail(model.getAccount());
-            controller.setForward("Fwd: " + selected.getSubject(), selected.getText());
-
-            Stage stage = new Stage();
-            stage.setTitle("Inoltra");
-            stage.setScene(new Scene(root));
-            stage.show();
-
-            statusLbl.setText("Inoltro messaggio");
-        } catch (IOException e) {
-            statusLbl.setText("Errore apertura finestra");
-            e.printStackTrace();
-        }
-    }
-
-    @FXML
-    private void onDelete() {
-        Email selected = inboxList.getSelectionModel().getSelectedItem();
-        if (selected != null) {
-            model.deleteEmail(selected);
-            statusLbl.setText("Eliminata: " + selected.getSubject());
+            lblDate.setText("-");
         } else {
-            statusLbl.setText("Nessuna email selezionata");
+            lblFrom.setText(email.getMittente());
+            lblTo.setText(email.getDestinatari());
+            lblSubject.setText(email.getOggetto());
+            txtBody.setText(email.getCorpo());
+            lblDate.setText(email.getData());
         }
     }
 
     @FXML
     private void onRefresh() {
-        model.loadEmails();
-        statusLbl.setText("Posta aggiornata - " + model.getMailList().size() + " email");
+        System.out.println("Refresh cliccato");
+        model.askForNewMails();
+    }
+
+    @FXML
+    private void onNew() {
+        System.out.println("Nuovo messaggio");
+        openMessageWindow("newMessageBtn");
+    }
+
+    @FXML
+    private void onReply() {
+        System.out.println("Rispondi");
+        Email selected = inboxList.getSelectionModel().getSelectedItem();
+        if (selected != null) {
+            openMessageWindow("replyBtn");
+        }
+    }
+
+    @FXML
+    private void onReplyAll() {
+        System.out.println("Rispondi a tutti");
+        Email selected = inboxList.getSelectionModel().getSelectedItem();
+        if (selected != null) {
+            openMessageWindow("replyAllBtn");
+        }
+    }
+
+    @FXML
+    private void onForward() {
+        System.out.println("Inoltra");
+        Email selected = inboxList.getSelectionModel().getSelectedItem();
+        if (selected != null) {
+            openMessageWindow("forwardBtn");
+        }
+    }
+
+    @FXML
+    private void onDelete() {
+        System.out.println("=== BOTTONE ELIMINA CLICCATO ===");
+
+        Email selected = inboxList.getSelectionModel().getSelectedItem();
+        System.out.println("Email selezionata: " + (selected != null ? selected.getOggetto() : "NESSUNA"));
+
+        if (selected != null) {
+            System.out.println("Chiamo model.deleteMail()...");
+            model.deleteMail();
+            inboxList.getSelectionModel().clearSelection();
+            System.out.println("Eliminazione completata");
+            System.out.println("================================\n");
+        } else {
+            System.out.println("Nessuna email selezionata!");
+            Alert alert = new Alert(Alert.AlertType.WARNING, "Seleziona un'email da eliminare");
+            alert.show();
+        }
+    }
+
+    private void openMessageWindow(String btnType) {
+        try {
+            Stage newStage = new Stage();
+            FXMLLoader loader = new FXMLLoader(
+                    getClass().getResource("/prog3/Client/NewMessage/NewMessage.fxml")
+            );
+            Scene scene = new Scene(loader.load(), 600, 500);
+
+            NewMessageController controller = loader.getController();
+            Email selected = inboxList.getSelectionModel().getSelectedItem();
+            controller.initModel(model.getAccount(), btnType, selected);
+
+            newStage.setTitle("Nuovo Messaggio");
+            newStage.setScene(scene);
+            newStage.show();
+        } catch (IOException e) {
+            System.out.println("ERRORE apertura finestra: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

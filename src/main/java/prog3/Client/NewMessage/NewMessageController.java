@@ -1,43 +1,61 @@
 package prog3.Client.NewMessage;
 
 import javafx.fxml.FXML;
-import javafx.scene.control.Label;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.stage.Stage;
+import prog3.Common.Email;
+import prog3.Common.MailString;
+import prog3.Common.Operations;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.regex.Pattern;
 
 public class NewMessageController {
 
-    @FXML private TextField txtTo;
-    @FXML private TextField txtSubject;
+    @FXML private Button sendBtn;
     @FXML private TextArea txtBody;
+    @FXML private TextField txtSubject;
+    @FXML private TextField txtTo;
     @FXML private Label errorLbl;
+    @FXML private Button cancelBtn;
+
+    private String userEmail;
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
     );
 
-    private String userEmail;
+    public void initModel(String userEmail, String btnType, Email selected) {
+        this.userEmail = userEmail;
 
-    public void setUserEmail(String email) {
-        this.userEmail = email;
-    }
-
-    public void setReplyTo(String to, String subject) {
-        txtTo.setText(to);
-        txtSubject.setText(subject);
-    }
-
-    public void setForward(String subject, String body) {
-        txtSubject.setText(subject);
-        txtBody.setText("\n\n--- Messaggio inoltrato ---\n" + body);
+        if (selected != null) {
+            switch (btnType) {
+                case "forwardBtn":
+                    txtBody.setText(selected.getCorpo());
+                    txtSubject.setText("Fwd: " + selected.getOggetto());
+                    break;
+                case "replyBtn":
+                    txtTo.setText(selected.getMittente());
+                    txtSubject.setText("Re: " + selected.getOggetto());
+                    break;
+                case "replyAllBtn":
+                    StringBuilder replyAll = new StringBuilder(selected.getMittente());
+                    String[] receivers = selected.getDestinatari().replaceAll("\\s+", "").split(",");
+                    for (String receiver : receivers) {
+                        if (!receiver.equals(userEmail)) {
+                            replyAll.append(", ").append(receiver);
+                        }
+                    }
+                    txtTo.setText(replyAll.toString());
+                    txtSubject.setText("Re: " + selected.getOggetto());
+                    break;
+            }
+        }
     }
 
     @FXML
@@ -47,64 +65,96 @@ public class NewMessageController {
         String body = txtBody.getText().trim();
 
         if (to.isEmpty()) {
-            showError("Inserisci almeno un destinatario");
+            showError("Inserisci destinatario/i");
             return;
         }
 
-        if (!EMAIL_PATTERN.matcher(to).matches()) {
+        if (!isValid(to)) {
             showError("Formato email non valido");
             return;
         }
 
-        if (subject.isEmpty()) {
-            showError("Inserisci un oggetto");
+        if (subject.isEmpty() && body.isEmpty()) {
+            showError("Impossibile inviare messaggio vuoto");
             return;
         }
 
-        if (body.isEmpty()) {
-            showError("Inserisci un messaggio");
-            return;
-        }
+        Socket socket = null;
+        ObjectOutputStream out = null;
+        ObjectInputStream in = null;
 
-        // Invio al server
         try {
-            Socket socket = new Socket("localhost", 8080);
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            System.out.println("\n=== INVIO EMAIL ===");
+            System.out.println("Da: " + userEmail);
+            System.out.println("A: " + to);
 
-            // Formato: SEND_EMAIL:from:to:subject:body
-            String message = "SEND_EMAIL:" + userEmail + ":" + to + ":" + subject + ":" + body;
-            out.println(message);
+            socket = new Socket("localhost", 8080);
+            out = new ObjectOutputStream(socket.getOutputStream());
+            in = new ObjectInputStream(socket.getInputStream());
 
-            String response = in.readLine();
+            out.writeObject(userEmail);
+            out.writeObject(Operations.send);
+            out.flush();
 
-            if (response.startsWith("OK")) {
-                System.out.println("Email inviata con successo");
-                closeWindow();
-            } else {
-                showError("Errore invio email");
-            }
+            MailString mail = new MailString(
+                    userEmail,
+                    to,
+                    subject,
+                    body,
+                    new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(Calendar.getInstance().getTime())
+            );
 
+            out.writeObject(mail);
+            out.flush();
+
+            System.out.println("Email inviata al server, attendo risposta...");
+
+            String response = (String) in.readObject();
+
+            System.out.println("RISPOSTA SERVER: '" + response + "'");
+            System.out.println("===================\n");
+
+            // Chiudi tutto PRIMA di decidere
+            in.close();
+            out.close();
             socket.close();
 
-        } catch (IOException e) {
-            showError("Impossibile connettersi al server");
+            // Controlla risposta
+            if (response != null && response.equals("Email inviata")) {
+                System.out.println("SUCCESS - Chiudo finestra");
+                Stage stage = (Stage) sendBtn.getScene().getWindow();
+                stage.close();
+            } else {
+                System.out.println("ERROR - Mostro errore");
+                showError(response != null ? response : "Errore invio");
+            }
+
+        } catch (Exception e) {
+            System.out.println("ECCEZIONE: " + e.getMessage());
             e.printStackTrace();
+            showError("Errore connessione server");
         }
     }
 
     @FXML
     private void onCancel() {
-        closeWindow();
-    }
-
-    private void closeWindow() {
-        Stage stage = (Stage) txtTo.getScene().getWindow();
+        Stage stage = (Stage) cancelBtn.getScene().getWindow();
         stage.close();
     }
 
     private void showError(String message) {
-        errorLbl.setText(message);
-        errorLbl.setVisible(true);
+        if (errorLbl != null) {
+            errorLbl.setText(message);
+            errorLbl.setVisible(true);
+        }
+    }
+
+    private Boolean isValid(String destinatari) {
+        String[] array = destinatari.replaceAll("\\s+", "").split(",");
+        for (String d : array) {
+            if (!EMAIL_PATTERN.matcher(d).matches())
+                return false;
+        }
+        return true;
     }
 }

@@ -2,46 +2,60 @@ package prog3.Server;
 
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
-import javafx.scene.control.TextArea;
+import javafx.scene.control.ListView;
 import javafx.application.Platform;
 
 public class ServerController {
 
-    @FXML private TextArea logArea;
-    @FXML private Label lblStatus;
-    @FXML private Label lblConnections;
+    @FXML
+    private ListView<String> logList;
 
-    private int connectionCount = 0;
+    @FXML
+    private Label lblStatus;
+
+    @FXML
+    private Label lblConnections;
+
+    private int connectionCount = 0;  // IMPORTANTE: campo di istanza
     private ServerModel serverModel;
     private Log log;
 
     @FXML
     private void initialize() {
         log = new Log();
-        serverModel = new ServerModel(this);
+
+        if (logList != null) {
+            logList.setItems(log.getLogList());
+        }
+
+        serverModel = new ServerModel(this, log);
         serverModel.start();
-        addLog("Server avviato");
-        lblConnections.setText("0");
+
+        if (lblConnections != null) {
+            lblConnections.setText("0");
+        }
+        if (lblStatus != null) {
+            lblStatus.setText("Server attivo");
+        }
     }
 
-    public void addLog(String message) {
-        Platform.runLater(() -> {
-            log.addEntry(message);
-            logArea.appendText(log.getLastEntry() + "\n");
-        });
-    }
-
-    public void incrementConnections() {
+    public synchronized void incrementConnections() {
         Platform.runLater(() -> {
             connectionCount++;
-            lblConnections.setText(String.valueOf(connectionCount));
+            System.out.println("DEBUG: Incremento connessioni. Totale: " + connectionCount);
+            if (lblConnections != null) {
+                lblConnections.setText(String.valueOf(connectionCount));
+            }
         });
     }
 
-    public void decrementConnections() {
+    public synchronized void decrementConnections() {
         Platform.runLater(() -> {
             connectionCount--;
-            lblConnections.setText(String.valueOf(connectionCount));
+            System.out.println("DEBUG: Decremento connessioni. Totale: " + connectionCount);
+            if (lblConnections != null) {
+                lblConnections.setText(String.valueOf(connectionCount));
+            }
         });
     }
 }

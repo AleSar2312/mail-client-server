@@ -1,42 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
-<BorderPane xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
-            fx:controller="prog3.Server.ServerController"
-            prefHeight="600.0" prefWidth="800.0">
+<VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml"
+      fx:controller="prog3.Server.ServerController"
+      spacing="15" style="-fx-padding: 20; -fx-background-color: #f5f5f5;">
 
-    <top>
-        <VBox>
-            <HBox style="-fx-background-color: #2196F3; -fx-padding: 15;">
-                <Label text="Mail Server" style="-fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: white;"/>
-                <Pane HBox.hgrow="ALWAYS"/>
-                <Label fx:id="lblStatus" text="Server in esecuzione" style="-fx-text-fill: white; -fx-font-size: 14px;"/>
-            </HBox>
-            <Separator/>
-        </VBox>
-    </top>
+    <!-- Header -->
+    <HBox spacing="20" alignment="CENTER_LEFT" style="-fx-background-color: #2196F3; -fx-padding: 15; -fx-background-radius: 5;">
+        <Label text="Mail Server" style="-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;"/>
+        <Region HBox.hgrow="ALWAYS"/>
+        <Label fx:id="lblStatus" text="Server in esecuzione" style="-fx-text-fill: white; -fx-font-size: 14px;"/>
+    </HBox>
 
-    <center>
-        <VBox spacing="10" style="-fx-background-color: white;">
-            <padding>
-                <Insets top="15" right="15" bottom="15" left="15"/>
-            </padding>
+    <!-- Connection Counter -->
+    <HBox spacing="10" alignment="CENTER_LEFT" style="-fx-padding: 10;">
+        <Label text="Numero connessioni:" style="-fx-font-size: 14px;"/>
+        <Label fx:id="lblConnections" text="0" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #2196F3;"/>
+    </HBox>
 
-            <Label text="Log Eventi Server" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
-            <Separator/>
+    <!-- Log Section -->
+    <VBox VBox.vgrow="ALWAYS" spacing="10">
+        <Label text="Log Eventi Server" style="-fx-font-size: 16px; -fx-font-weight: bold;"/>
+        <ListView fx:id="logList" VBox.vgrow="ALWAYS"
+                  style="-fx-font-family: 'Courier New'; -fx-font-size: 11px; -fx-background-color: white; -fx-border-color: #cccccc; -fx-border-radius: 3;"/>
+    </VBox>
 
-            <TextArea fx:id="logArea" editable="false" VBox.vgrow="ALWAYS"
-                      style="-fx-font-family: 'Courier New'; -fx-font-size: 12px;"/>
-        </VBox>
-    </center>
-
-    <bottom>
-        <HBox style="-fx-background-color: #e0e0e0; -fx-padding: 10;" spacing="10">
-            <Label text="Numero connessioni:"/>
-            <Label fx:id="lblConnections" text="0"/>
-        </HBox>
-    </bottom>
-</BorderPane>
+</VBox>
