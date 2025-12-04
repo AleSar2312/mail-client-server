@@ -1,5 +1,6 @@
 package prog3.Client.NewMessage;
 
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.stage.Stage;
@@ -7,7 +8,6 @@ import prog3.Common.Email;
 import prog3.Common.MailString;
 import prog3.Common.Operations;
 
-import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
@@ -17,12 +17,12 @@ import java.util.regex.Pattern;
 
 public class NewMessageController {
 
-    @FXML private Button sendBtn;
+    @FXML private Button btnSend;        // ✅ Cambiato da sendBtn
     @FXML private TextArea txtBody;
     @FXML private TextField txtSubject;
     @FXML private TextField txtTo;
-    @FXML private Label errorLbl;
-    @FXML private Button cancelBtn;
+    @FXML private Label lblError;        // ✅ Cambiato da errorLbl
+    @FXML private Button btnCancel;      // ✅ Cambiato da cancelBtn
 
     private String userEmail;
 
@@ -79,73 +79,75 @@ public class NewMessageController {
             return;
         }
 
-        Socket socket = null;
-        ObjectOutputStream out = null;
-        ObjectInputStream in = null;
+        // ✅ Ora btnCancel funziona perché corrisponde a fx:id="btnCancel" nell'FXML
+        final Stage currentStage = (Stage) btnCancel.getScene().getWindow();
 
-        try {
-            System.out.println("\n=== INVIO EMAIL ===");
-            System.out.println("Da: " + userEmail);
-            System.out.println("A: " + to);
+        new Thread(() -> {
+            try {
+                System.out.println("\n=== INVIO EMAIL ===");
+                System.out.println("Da: " + userEmail);
+                System.out.println("A: " + to);
 
-            socket = new Socket("localhost", 8080);
-            out = new ObjectOutputStream(socket.getOutputStream());
-            in = new ObjectInputStream(socket.getInputStream());
+                Socket socket = new Socket("localhost", 8080);
+                ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+                ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
 
-            out.writeObject(userEmail);
-            out.writeObject(Operations.send);
-            out.flush();
+                out.writeObject(userEmail);
+                out.writeObject(Operations.send);
+                out.flush();
 
-            MailString mail = new MailString(
-                    userEmail,
-                    to,
-                    subject,
-                    body,
-                    new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(Calendar.getInstance().getTime())
-            );
+                MailString mail = new MailString(
+                        userEmail,
+                        to,
+                        subject,
+                        body,
+                        new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(Calendar.getInstance().getTime())
+                );
 
-            out.writeObject(mail);
-            out.flush();
+                out.writeObject(mail);
+                out.flush();
 
-            System.out.println("Email inviata al server, attendo risposta...");
+                System.out.println("Email inviata al server, attendo risposta...");
 
-            String response = (String) in.readObject();
+                String response = (String) in.readObject();
 
-            System.out.println("RISPOSTA SERVER: '" + response + "'");
-            System.out.println("===================\n");
+                System.out.println("RISPOSTA SERVER: '" + response + "'");
 
-            // Chiudi tutto PRIMA di decidere
-            in.close();
-            out.close();
-            socket.close();
+                in.close();
+                out.close();
+                socket.close();
 
-            // Controlla risposta
-            if (response != null && response.equals("Email inviata")) {
-                System.out.println("SUCCESS - Chiudo finestra");
-                Stage stage = (Stage) sendBtn.getScene().getWindow();
-                stage.close();
-            } else {
-                System.out.println("ERROR - Mostro errore");
-                showError(response != null ? response : "Errore invio");
+                if (response != null && response.equals("Email inviata")) {
+                    System.out.println("✅ SUCCESS - Chiudo finestra");
+                    Platform.runLater(() -> {
+                        if (currentStage != null) {
+                            currentStage.close();
+                            System.out.println("✅ Finestra chiusa!");
+                        }
+                    });
+                } else {
+                    System.out.println("❌ ERROR: " + response);
+                    Platform.runLater(() -> showError(response != null ? response : "Errore invio"));
+                }
+
+            } catch (Exception e) {
+                System.out.println("❌ ECCEZIONE: " + e.getMessage());
+                e.printStackTrace();
+                Platform.runLater(() -> showError("Errore connessione server"));
             }
-
-        } catch (Exception e) {
-            System.out.println("ECCEZIONE: " + e.getMessage());
-            e.printStackTrace();
-            showError("Errore connessione server");
-        }
+        }).start();
     }
 
     @FXML
     private void onCancel() {
-        Stage stage = (Stage) cancelBtn.getScene().getWindow();
+        Stage stage = (Stage) btnCancel.getScene().getWindow();
         stage.close();
     }
 
     private void showError(String message) {
-        if (errorLbl != null) {
-            errorLbl.setText(message);
-            errorLbl.setVisible(true);
+        if (lblError != null) {  // ✅ Cambiato da errorLbl
+            lblError.setText(message);
+            lblError.setVisible(true);
         }
     }
 
