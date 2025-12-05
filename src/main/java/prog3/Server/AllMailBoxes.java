@@ -11,7 +11,7 @@ public class AllMailBoxes {
     private HashMap<String, Mailbox> all_mailboxes = new HashMap<>();
     private static final String path = "src/main/java/prog3/Server/mailboxes/";
 
-    public void initMailbox(String user) {
+    public synchronized void initMailbox(String user) {
         if (!all_mailboxes.containsKey(user)) {
             System.out.println("Creo nuova Mailbox per " + user);
             all_mailboxes.put(user, new Mailbox(user));
@@ -21,7 +21,7 @@ public class AllMailBoxes {
         }
     }
 
-    public ArrayList<MailString> getInitMailList(String user) {
+    public synchronized ArrayList<MailString> getInitMailList(String user) {
         if (!all_mailboxes.containsKey(user))
             initMailbox(user);
 
@@ -29,13 +29,13 @@ public class AllMailBoxes {
         return new ArrayList<>(all_mailboxes.get(user).mail_list.values());
     }
 
-    public boolean askNew(String user) {
+    public synchronized boolean askNew(String user) {
         if (!all_mailboxes.containsKey(user))
             initMailbox(user);
         return !all_mailboxes.get(user).new_mail.isEmpty();
     }
 
-    public ArrayList<MailString> getNew(String user) {
+    public synchronized ArrayList<MailString> getNew(String user) {
         if (!all_mailboxes.containsKey(user))
             initMailbox(user);
 
@@ -48,13 +48,13 @@ public class AllMailBoxes {
         return Files.exists(Path.of(path + email));
     }
 
-    public String sendMail(String user, MailString mail_to_send) {
+    public synchronized String sendMail(String user, MailString mail_to_send) {
         if (!all_mailboxes.containsKey(user))
             initMailbox(user);
         return all_mailboxes.get(user).send(mail_to_send);
     }
 
-    public void deleteMail(int mail_id, String user) {
+    public synchronized void deleteMail(int mail_id, String user) {
         System.out.println("DEBUG AllMailBoxes.deleteMail: ID=" + mail_id + ", User=" + user);
         System.out.println("all_mailboxes contiene " + user + "? " + all_mailboxes.containsKey(user));
 
